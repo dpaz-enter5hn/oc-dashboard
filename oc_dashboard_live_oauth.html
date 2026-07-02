@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Recepción de Órdenes de Compra — Enter5 Group</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f7f7f5;
+    color: #1f1f1f;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px 0; }
+  .subtitle { color: #6b6b6b; font-size: 13px; margin-bottom: 20px; }
+
+  .signin-box {
+    max-width: 480px;
+    margin: 60px auto;
+    background: #fff;
+    border: 1px solid #e5e3de;
+    border-radius: 12px;
+    padding: 28px;
+    text-align: center;
+  }
+  .signin-box p { color: #555; font-size: 14px; line-height: 1.5; }
+  .btn-google {
+    background: #1f2937;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-google:hover { background: #111827; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .signout-btn {
+    background: #fff;
+    border: 1px solid #e5e3de;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+  }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn {
+    background: #fff;
+    border: 1px solid #e5e3de;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+  }
+  .tab-btn:hover { background: #fafaf8; }
+  .tab-btn.active { background: #1f2937; color: #fff; border-color: #1f2937; }
+  .tab-btn .tab-count { margin-left: 6px; font-weight: 500; opacity: 0.75; }
+
+  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+  .card { background: #fff; border: 1px solid #e5e3de; border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 24px; font-weight: 600; }
+  .card .label { font-size: 12px; color: #6b6b6b; margin-top: 2px; }
+  .card.total .num { color: #1f1f1f; }
+  .card.nueva .num { color: #b45309; }
+  .card.seguimiento .num { color: #b91c1c; }
+  .card.proceso .num { color: #1d4ed8; }
+  .card.cerrada .num { color: #15803d; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar label { font-size: 12px; color: #6b6b6b; }
+  .toolbar select, .toolbar input[type="date"] {
+    font-size: 13px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid #d8d6d0; background: #fff; color: #1f1f1f;
+  }
+  .client-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .chip { background: #fff; border: 1px solid #e5e3de; border-radius: 999px; padding: 5px 12px; font-size: 12px; color: #444; }
+  .chip b { color: #1f1f1f; }
+
+  table {
+    width: 100%; border-collapse: collapse; background: #fff;
+    border: 1px solid #e5e3de; border-radius: 10px; overflow: hidden; font-size: 13px;
+  }
+  thead th {
+    text-align: left; background: #f0efec; padding: 10px 12px;
+    font-weight: 600; color: #444; border-bottom: 1px solid #e5e3de; white-space: nowrap;
+  }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid #f0efec; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge.nueva { background: #fef3c7; color: #92400e; }
+  .badge.proceso { background: #dbeafe; color: #1e40af; }
+  .badge.seguimiento { background: #fee2e2; color: #991b1b; }
+  .badge.cerrada { background: #dcfce7; color: #166534; }
+  .badge.facturada100 { background: #dcfce7; color: #166534; }
+  .client-name { font-weight: 600; font-size: 12.5px; }
+  .client-name.unconfirmed { color: #b45309; }
+  .oc-ref { font-weight: 600; }
+  .oc-subject { color: #6b6b6b; font-size: 12px; margin-top: 2px; }
+  .muted { color: #6b6b6b; font-size: 12px; }
+  .pdf-cell { max-width: 220px; }
+  .pdf-empty { color: #c7c5bf; }
+  .pdf-tag {
+    display: inline-block; background: #e0e7ff; color: #3730a3; font-size: 10px;
+    font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-bottom: 4px;
+  }
+  .money { font-weight: 600; white-space: nowrap; }
+  tfoot td { padding: 10px 12px; border-top: 2px solid #e5e3de; background: #fafaf8; }
+  .totals-row .money { color: #1f3864; }
+
+  .billing-select { font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid #d8d6d0; background: #fff; color: #1f1f1f; }
+  .billing-select.b50 { border-color: #f59e0b; color: #92400e; }
+  .billing-select.b100 { border-color: #16a34a; color: #166534; }
+  .undo-btn {
+    display: block; font-size: 11px; color: #1d4ed8; background: none; border: none;
+    text-decoration: underline; cursor: pointer; padding: 0; margin-top: 5px;
+  }
+
+  .footer { margin-top: 16px; font-size: 12px; color: #8a8a8a; }
+  .empty, .error {
+    background: #fff; border: 1px solid #e5e3de; border-radius: 10px; padding: 24px;
+    text-align: center; color: #6b6b6b; font-size: 13px;
+  }
+  .error { color: #991b1b; border-color: #fecaca; background: #fef2f2; text-align: left; white-space: pre-wrap; }
+  .loading { padding: 24px; text-align: center; color: #6b6b6b; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>Recepción de Órdenes de Compra — Enter5 Group</h1>
+  <div class="subtitle">Se conecta directo a tu Gmail con tu propia cuenta de Google (sin depender de Cowork). El estado de facturación se guarda como etiqueta en Gmail, así que se ve igual en cualquier computadora donde inicies sesión.</div>
+
+  <div id="signinBox" class="signin-box">
+    <p>Inicia sesión con tu cuenta de Google (dpaz@enter5group.com) para consultar el correo en vivo.<br>Se te pedirá permiso de lectura y organización de tu Gmail (para poder marcar las OC como facturadas).</p>
+    <button id="signinBtn" class="btn-google">Iniciar sesión con Google</button>
+    <div id="signinError" class="error" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <div id="dashboardRoot" style="display:none;">
+    <div class="topbar">
+      <div class="tabs">
+        <button id="tabActivas" class="tab-btn active">En seguimiento<span class="tab-count" id="tabActivasCount"></span></button>
+        <button id="tabFacturadas" class="tab-btn">Órdenes de compra facturadas<span class="tab-count" id="tabFacturadasCount"></span></button>
+      </div>
+      <button id="signOutBtn" class="signout-btn">Cerrar sesión</button>
+    </div>
+
+    <div id="cards" class="cards"></div>
+    <div class="toolbar">
+      <label for="clientFilter">Cliente:</label>
+      <select id="clientFilter"><option value="">Todos</option></select>
+      <label for="fromDate">Desde:</label>
+      <input type="date" id="fromDate" value="2026-07-01">
+      <button id="refreshBtn" class="signout-btn" style="margin-left:auto;">Actualizar ahora</button>
+    </div>
+    <div id="clientChips" class="client-chips"></div>
+    <div id="content"><div class="loading">Cargando correo…</div></div>
+    <div class="footer" id="footer"></div>
+  </div>
+
+<script>
+/* ============================================================================
+   CONFIGURACIÓN — reemplaza esto con tu propio Client ID de Google Cloud
+   (OAuth 2.0 Client ID, tipo "Web application"). No es un dato secreto, es
+   público, pero SÍ tiene que coincidir con el proyecto donde autorizaste
+   el origen (la URL de GitHub Pages donde publiques este archivo).
+   ============================================================================ */
+const GOOGLE_CLIENT_ID = "REEMPLAZA_CON_TU_CLIENT_ID.apps.googleusercontent.com";
+
+// gmail.modify permite leer correo Y aplicar/quitar etiquetas (para el estado de facturación)
+const SCOPES = "https://www.googleapis.com/auth/gmail.modify";
+
+const SEARCH_QUERY = 'in:inbox (subject:(ODC OR OC) OR subject:"orden de compra" OR subject:"purchase order")';
+
+// Known clients that issue purchase orders to Enter5 (domain -> display name)
+const CLIENT_MAP = {
+  "banpais.hn": "Banco del País (BANPAIS)",
+  "broomsandmops.net": "Brooms & Mops (PTS / INHMESA)",
+};
+
+// Domains that are Enter5's own suppliers/vendors or internal/admin noise
+const EXCLUDE_DOMAINS = [
+  "silmarelectronics.com", "istccorp.com", "anixter.com", "ccichonduras.org",
+  "networkhn.com", "jetstereo.com", "ingenium.la", "odoo.com", "jci.com",
+  "wesco.com", "enter5group.com", "enter5hn.com"
+];
+
+// Datos extraídos manualmente del PDF de cada OC (se agregan a medida que se leen)
+const PDF_DETAILS = {
+  "ODC-5-20267496097": {
+    cotizacion: "BP-632",
+    descripcion: "Suministro de equipo de tecnología: Multitool Flipper Zero Starter Pack con Micro SD card, tarjeta micro SDXC 64GB (Kingston), Devboard WiFi para Flipper Zero y funda protectora 5 en 1, para el área de Tecnología.",
+    moneda: "L",
+    subtotal: 10359.00,
+    isv: 1553.85,
+    total: 11912.85,
+    extra: {
+      documento: "ODC-5-202674900006097 BP",
+      fechaEmision: "01/07/2026",
+      contactoEntrega: "Nora Alvarado (Tecnología)",
+      tiempoEntrega: "Recepción hasta 65 días",
+      formaPago: "Crédito a cuenta",
+      contactoProveedor: "Carlos Martinez"
+    }
+  }
+};
+
+const EXTRA_COLUMNS = [
+  { key: "documento", label: "No. Documento" },
+  { key: "fechaEmision", label: "Fecha Emisión" },
+  { key: "contactoEntrega", label: "Contacto Entrega" },
+  { key: "tiempoEntrega", label: "Tiempo Entrega" },
+  { key: "formaPago", label: "Forma de Pago" },
+  { key: "contactoProveedor", label: "Contacto Proveedor" },
+];
+
+const BILLING_LABEL_NAMES = { "50": "Facturado-50", "100": "Facturado-100" };
+
+let ALL_ROWS = [];
+let BILLING_STATUS = {};   // ref -> "" | "50" | "100"  (reflejo de las etiquetas de Gmail)
+let LABEL_IDS = {};        // "Facturado-50"/"Facturado-100" -> Gmail label id
+let CURRENT_TAB = "activas";
+let accessToken = null;
+let tokenClient = null;
+
+/* ---------------- utilidades compartidas con el dashboard de Cowork ---------------- */
+
+function fmtMoney(n, moneda) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return (moneda || "L") + " " + n.toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function escapeHtml(str) {
+  return String(str || "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-HN", { year: "numeric", month: "short", day: "2-digit" });
+}
+function daysSince(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+function domainOf(addr) {
+  const m = (addr || "").match(/@([\w.-]+)/);
+  return m ? m[1].toLowerCase() : "";
+}
+function isExcluded(domain) {
+  return EXCLUDE_DOMAINS.some(d => domain === d || domain.endsWith("." + d));
+}
+function extractRef(subject) {
+  let m = subject.match(/ODC-?\d{1,3}-?\d+/i);
+  if (m) return m[0].toUpperCase();
+  m = subject.match(/(?:orden de compra|purchase order)\D{0,10}(\d{3,7})/i);
+  if (m) return "OC " + m[1];
+  m = subject.match(/\bOC\b[^0-9]{0,15}(\d{3,7})/i);
+  if (m) return "OC " + m[1];
+  return subject.length > 48 ? subject.slice(0, 48) + "…" : subject;
+}
+function classify(thread) {
+  const msgs = (thread.messages || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (msgs.length === 0) return null;
+  const clientMsgs = msgs.filter(m => !isExcluded(domainOf(m.sender)));
+  if (clientMsgs.length === 0) return null;
+  const clientFirst = clientMsgs[0];
+  const clientDomain = domainOf(clientFirst.sender);
+  const clientName = CLIENT_MAP[clientDomain] || ("Por confirmar (" + clientDomain + ")");
+  const first = msgs[0];
+  const last = msgs[msgs.length - 1];
+  let status = "nueva";
+  for (const m of msgs) {
+    const snippet = (m.snippet || "").toLowerCase();
+    if (snippet.includes("cerrada") || snippet.includes("cerramos") || snippet.includes("cancelada")) status = "cerrada";
+  }
+  if (status !== "cerrada") {
+    if (msgs.length === 1) status = "nueva";
+    else if (domainOf(last.sender) === clientDomain) status = "seguimiento";
+    else status = "proceso";
+  }
+  return { status, first, last, count: msgs.length, clientName, clientDomain, unconfirmed: !CLIENT_MAP[clientDomain] };
+}
+
+const STATUS_META = {
+  nueva:       { label: "Nueva · pendiente de acuse", badge: "nueva" },
+  proceso:     { label: "Acusada · en proceso",        badge: "proceso" },
+  seguimiento: { label: "Requiere seguimiento",         badge: "seguimiento" },
+  cerrada:     { label: "Cerrada",                      badge: "cerrada" },
+};
+const STATUS_ORDER = ["seguimiento", "nueva", "proceso", "cerrada"];
+
+/* ---------------- llamadas directas a la API de Gmail ---------------- */
+
+async function gmailFetch(path, opts = {}) {
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
+    ...opts,
+    headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json", ...(opts.headers || {}) }
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Gmail API ${res.status}: ${text}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function ensureLabels() {
+  const data = await gmailFetch("/labels");
+  const byName = {};
+  (data.labels || []).forEach(l => { byName[l.name] = l.id; });
+  for (const name of Object.values(BILLING_LABEL_NAMES)) {
+    if (!byName[name]) {
+      const created = await gmailFetch("/labels", {
+        method: "POST",
+        body: JSON.stringify({ name, labelListVisibility: "labelShow", messageListVisibility: "show" })
+      });
+      byName[name] = created.id;
+    }
+  }
+  return byName;
+}
+
+async function listThreadIds(query) {
+  let ids = [];
+  let pageToken;
+  do {
+    const qs = new URLSearchParams({ q: query, maxResults: "50" });
+    if (pageToken) qs.set("pageToken", pageToken);
+    const data = await gmailFetch(`/threads?${qs.toString()}`);
+    (data.threads || []).forEach(t => ids.push(t.id));
+    pageToken = data.nextPageToken;
+  } while (pageToken && ids.length < 300);
+  return ids;
+}
+
+function headerVal(headers, name) {
+  const h = (headers || []).find(h => h.name.toLowerCase() === name.toLowerCase());
+  return h ? h.value : "";
+}
+function parseFromAddress(fromHeader) {
+  const m = (fromHeader || "").match(/<([^>]+)>/);
+  return m ? m[1] : (fromHeader || "").trim();
+}
+
+async function getThreadDetail(id) {
+  const qs = new URLSearchParams({ format: "metadata" });
+  qs.append("metadataHeaders", "Subject");
+  qs.append("metadataHeaders", "From");
+  qs.append("metadataHeaders", "Date");
+  return gmailFetch(`/threads/${id}?${qs.toString()}`);
+}
+
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < items.length) {
+      const cur = idx++;
+      results[cur] = await fn(items[cur], cur);
+    }
+  }
+  await Promise.all(new Array(Math.min(limit, items.length)).fill(0).map(worker));
+  return results;
+}
+
+async function setBillingStatus(ref, threadId, newStatus) {
+  const label50 = LABEL_IDS[BILLING_LABEL_NAMES["50"]];
+  const label100 = LABEL_IDS[BILLING_LABEL_NAMES["100"]];
+  const addLabelIds = [];
+  const removeLabelIds = [];
+  if (newStatus === "50") { addLabelIds.push(label50); removeLabelIds.push(label100); }
+  else if (newStatus === "100") { addLabelIds.push(label100); removeLabelIds.push(label50); }
+  else { removeLabelIds.push(label50, label100); }
+  await gmailFetch(`/threads/${threadId}/modify`, {
+    method: "POST",
+    body: JSON.stringify({ addLabelIds: addLabelIds.filter(Boolean), removeLabelIds: removeLabelIds.filter(Boolean) })
+  });
+  if (newStatus) BILLING_STATUS[ref] = newStatus; else delete BILLING_STATUS[ref];
+}
+
+/* ---------------- carga principal ---------------- */
+
+async function loadAll() {
+  const contentEl = document.getElementById("content");
+  contentEl.innerHTML = `<div class="loading">Consultando Gmail…</div>`;
+  try {
+    LABEL_IDS = await ensureLabels();
+
+    const [allIds, ids50, ids100] = await Promise.all([
+      listThreadIds(SEARCH_QUERY),
+      listThreadIds(`${SEARCH_QUERY} label:${BILLING_LABEL_NAMES["50"]}`),
+      listThreadIds(`${SEARCH_QUERY} label:${BILLING_LABEL_NAMES["100"]}`),
+    ]);
+    const set50 = new Set(ids50);
+    const set100 = new Set(ids100);
+
+    const threadDetails = await mapWithConcurrency(allIds, 6, id => getThreadDetail(id).catch(() => null));
+
+    BILLING_STATUS = {};
+    ALL_ROWS = threadDetails.filter(Boolean).map(t => {
+      const msgs = (t.messages || []).map(m => ({
+        sender: parseFromAddress(headerVal(m.payload && m.payload.headers, "From")),
+        subject: headerVal(m.payload && m.payload.headers, "Subject") || "(sin asunto)",
+        date: headerVal(m.payload && m.payload.headers, "Date"),
+        snippet: m.snippet || ""
+      }));
+      const c = classify({ messages: msgs });
+      if (!c) return null;
+      const subject = msgs[0] ? msgs[0].subject : "(sin asunto)";
+      const ref = extractRef(subject);
+      if (set100.has(t.id)) BILLING_STATUS[ref] = "100";
+      else if (set50.has(t.id)) BILLING_STATUS[ref] = "50";
+      return {
+        ref, subject,
+        sender: c.first ? c.first.sender : "—",
+        received: c.first && c.first.date ? new Date(c.first.date).toISOString() : null,
+        lastActivity: c.last && c.last.date ? new Date(c.last.date).toISOString() : null,
+        status: c.status, count: c.count,
+        clientName: c.clientName, unconfirmed: c.unconfirmed,
+        threadId: t.id
+      };
+    }).filter(Boolean);
+
+    const sel = document.getElementById("clientFilter");
+    const dateInput = document.getElementById("fromDate");
+    const clients = Array.from(new Set(ALL_ROWS.map(r => r.clientName))).sort();
+    sel.innerHTML = '<option value="">Todos</option>' + clients.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    sel.onchange = () => render(sel.value, dateInput.value);
+    dateInput.onchange = () => render(sel.value, dateInput.value);
+
+    render("", dateInput.value);
+  } catch (err) {
+    contentEl.innerHTML = `<div class="error">Error al consultar Gmail:\n${escapeHtml(err.message || String(err))}</div>`;
+  }
+}
+
+/* ---------------- render (idéntico en estructura al dashboard de Cowork) ---------------- */
+
+function baseFilteredRows(filterClient, fromDateStr) {
+  const fromTime = fromDateStr ? new Date(fromDateStr + "T00:00:00").getTime() : null;
+  let rows = filterClient ? ALL_ROWS.filter(r => r.clientName === filterClient) : ALL_ROWS;
+  if (fromTime !== null) rows = rows.filter(r => r.received && new Date(r.received).getTime() >= fromTime);
+  return rows;
+}
+
+function attachRowHandlers(contentEl, filterClient, fromDateStr) {
+  contentEl.querySelectorAll(".billing-select").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      const ref = sel.getAttribute("data-ref");
+      const threadId = sel.getAttribute("data-thread");
+      sel.disabled = true;
+      try {
+        await setBillingStatus(ref, threadId, sel.value);
+        render(filterClient, fromDateStr);
+      } catch (err) {
+        alert("No se pudo actualizar la etiqueta en Gmail: " + (err.message || err));
+        sel.disabled = false;
+      }
+    });
+  });
+  contentEl.querySelectorAll(".undo-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const ref = btn.getAttribute("data-ref");
+      const threadId = btn.getAttribute("data-thread");
+      btn.disabled = true;
+      try {
+        await setBillingStatus(ref, threadId, "");
+        render(filterClient, fromDateStr);
+      } catch (err) {
+        alert("No se pudo actualizar la etiqueta en Gmail: " + (err.message || err));
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+function render(filterClient, fromDateStr) {
+  const contentEl = document.getElementById("content");
+  const cardsEl = document.getElementById("cards");
+  const chipsEl = document.getElementById("clientChips");
+  const footerEl = document.getElementById("footer");
+
+  const baseRows = baseFilteredRows(filterClient, fromDateStr);
+  const activasBase = baseRows.filter(r => BILLING_STATUS[r.ref] !== "100");
+  const facturadasBase = baseRows.filter(r => BILLING_STATUS[r.ref] === "100");
+
+  document.getElementById("tabActivasCount").textContent = " (" + activasBase.length + ")";
+  document.getElementById("tabFacturadasCount").textContent = " (" + facturadasBase.length + ")";
+  document.getElementById("tabActivas").classList.toggle("active", CURRENT_TAB === "activas");
+  document.getElementById("tabFacturadas").classList.toggle("active", CURRENT_TAB === "facturadas");
+
+  let rows = CURRENT_TAB === "activas" ? activasBase : facturadasBase;
+
+  if (ALL_ROWS.length === 0) {
+    contentEl.innerHTML = `<div class="empty">No se encontraron órdenes de compra de clientes todavía.</div>`;
+    cardsEl.innerHTML = ""; chipsEl.innerHTML = "";
+    return;
+  }
+
+  const chipsSource = CURRENT_TAB === "activas"
+    ? ALL_ROWS.filter(r => BILLING_STATUS[r.ref] !== "100")
+    : ALL_ROWS.filter(r => BILLING_STATUS[r.ref] === "100");
+  const byClient = {};
+  chipsSource.forEach(r => { byClient[r.clientName] = (byClient[r.clientName] || 0) + 1; });
+  chipsEl.innerHTML = Object.entries(byClient).sort((a, b) => b[1] - a[1])
+    .map(([name, n]) => `<span class="chip"><b>${escapeHtml(name)}</b> · ${n} OC</span>`).join("");
+
+  if (rows.length === 0) {
+    const msg = CURRENT_TAB === "facturadas"
+      ? "Todavía no hay órdenes de compra marcadas como “Facturada 100%”."
+      : "No hay órdenes de compra que coincidan con el filtro seleccionado.";
+    contentEl.innerHTML = `<div class="empty">${msg}</div>`;
+    cardsEl.innerHTML = "";
+    return;
+  }
+
+  const counts = { total: rows.length, nueva: 0, seguimiento: 0, proceso: 0, cerrada: 0 };
+  rows.forEach(r => counts[r.status]++);
+  const totalLabel = CURRENT_TAB === "facturadas" ? "OC facturadas" : "OC totales";
+  cardsEl.innerHTML = `
+    <div class="card total"><div class="num">${counts.total}</div><div class="label">${totalLabel}</div></div>
+    <div class="card nueva"><div class="num">${counts.nueva}</div><div class="label">Nuevas sin acusar</div></div>
+    <div class="card seguimiento"><div class="num">${counts.seguimiento}</div><div class="label">Requieren seguimiento</div></div>
+    <div class="card proceso"><div class="num">${counts.proceso}</div><div class="label">En proceso</div></div>
+    <div class="card cerrada"><div class="num">${counts.cerrada}</div><div class="label">Cerradas</div></div>
+  `;
+
+  const sortedRows = rows.slice().sort((a, b) => {
+    const oa = STATUS_ORDER.indexOf(a.status), ob = STATUS_ORDER.indexOf(b.status);
+    if (oa !== ob) return oa - ob;
+    return new Date(b.lastActivity) - new Date(a.lastActivity);
+  });
+
+  const tableRows = sortedRows.map(r => {
+    const meta = STATUS_META[r.status];
+    const days = daysSince(r.lastActivity);
+    const daysLabel = days === null ? "—" : (days === 0 ? "hoy" : `hace ${days} día${days === 1 ? "" : "s"}`);
+    const pdf = PDF_DETAILS[r.ref];
+    const extraCells = EXTRA_COLUMNS.map(c => {
+      const v = pdf && pdf.extra ? pdf.extra[c.key] : null;
+      return `<td class="muted">${v ? escapeHtml(v) : `<span class="pdf-empty">—</span>`}</td>`;
+    }).join("");
+    const bs = BILLING_STATUS[r.ref] || "";
+    const billingCell = CURRENT_TAB === "facturadas"
+      ? `<td><span class="badge facturada100">Facturada 100%</span><button class="undo-btn" data-ref="${escapeHtml(r.ref)}" data-thread="${escapeHtml(r.threadId)}">Regresar a proceso</button></td>`
+      : `<td>
+          <select class="billing-select ${bs === "50" ? "b50" : bs === "100" ? "b100" : ""}" data-ref="${escapeHtml(r.ref)}" data-thread="${escapeHtml(r.threadId)}">
+            <option value="" ${bs === "" ? "selected" : ""}>Sin facturar</option>
+            <option value="50" ${bs === "50" ? "selected" : ""}>Facturada 50%</option>
+            <option value="100" ${bs === "100" ? "selected" : ""}>Facturada 100%</option>
+          </select>
+        </td>`;
+    return `
+      <tr>
+        <td><span class="client-name ${r.unconfirmed ? "unconfirmed" : ""}">${escapeHtml(r.clientName)}</span></td>
+        <td><div class="oc-ref">${escapeHtml(r.ref)}</div><div class="oc-subject">${escapeHtml(r.subject)}</div></td>
+        <td class="muted">${escapeHtml(r.sender)}</td>
+        <td>${fmtDate(r.received)}</td>
+        <td>${fmtDate(r.lastActivity)}<div class="muted">${daysLabel}</div></td>
+        <td><span class="badge ${meta.badge}">${meta.label}</span></td>
+        ${billingCell}
+        <td>${pdf ? `<span class="pdf-tag">PDF leído</span><br>${escapeHtml(pdf.cotizacion)}` : `<span class="pdf-empty">—</span>`}</td>
+        <td class="pdf-cell">${pdf ? escapeHtml(pdf.descripcion) : `<span class="pdf-empty">—</span>`}</td>
+        ${extraCells}
+        <td>${pdf ? `<span class="money">${fmtMoney(pdf.subtotal, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
+        <td>${pdf ? `<span class="money">${fmtMoney(pdf.isv, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
+        <td>${pdf ? `<span class="money">${fmtMoney(pdf.total, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
+        <td class="muted">${r.count}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const totalsByCurrency = {};
+  let pdfCount = 0;
+  rows.forEach(r => {
+    const pdf = PDF_DETAILS[r.ref];
+    if (!pdf) return;
+    pdfCount++;
+    const mon = pdf.moneda || "L";
+    if (!totalsByCurrency[mon]) totalsByCurrency[mon] = { subtotal: 0, isv: 0, total: 0 };
+    totalsByCurrency[mon].subtotal += pdf.subtotal || 0;
+    totalsByCurrency[mon].isv += pdf.isv || 0;
+    totalsByCurrency[mon].total += pdf.total || 0;
+  });
+
+  let footRow = "";
+  if (pdfCount > 0) {
+    const totalsLabel = CURRENT_TAB === "facturadas" ? `Total facturado · ${pdfCount} OC` : `Totales · ${pdfCount} OC con PDF leído`;
+    footRow = Object.keys(totalsByCurrency).map((mon, i) => `
+      <tr class="totals-row">
+        <td colspan="7" class="muted">${i === 0 ? totalsLabel : ""}</td>
+        <td></td>
+        <td class="muted">${mon}</td>
+        <td colspan="${EXTRA_COLUMNS.length}"></td>
+        <td><span class="money">${fmtMoney(totalsByCurrency[mon].subtotal, mon)}</span></td>
+        <td><span class="money">${fmtMoney(totalsByCurrency[mon].isv, mon)}</span></td>
+        <td><span class="money">${fmtMoney(totalsByCurrency[mon].total, mon)}</span></td>
+        <td></td>
+      </tr>
+    `).join("");
+  }
+
+  contentEl.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Cliente</th><th>OC / Asunto</th><th>Remitente</th><th>Recibida</th><th>Última actividad</th>
+        <th>Estatus</th><th>Facturación</th><th>Cotización</th><th>Descripción</th>
+        ${EXTRA_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}
+        <th>Subtotal</th><th>ISV</th><th>Monto total</th><th>Msjs</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+      <tfoot>${footRow}</tfoot>
+    </table>
+  `;
+
+  attachRowHandlers(contentEl, filterClient, fromDateStr);
+
+  const tabNote = CURRENT_TAB === "facturadas"
+    ? "Estas OC están etiquetadas en Gmail como “Facturado-100” y no aparecen en “En seguimiento”. Usa “Regresar a proceso” si se marcó una por error."
+    : "Marca una OC como “Facturada 100%” para moverla a la pestaña de facturadas (se guarda como etiqueta de Gmail, visible desde cualquier computadora)." ;
+  footerEl.textContent = `Actualizado: ${new Date().toLocaleString("es-HN")} · ${tabNote}`;
+}
+
+/* ---------------- login / logout ---------------- */
+
+function showSigninError(msg) {
+  const el = document.getElementById("signinError");
+  el.style.display = "block";
+  el.textContent = typeof msg === "string" ? msg : JSON.stringify(msg);
+}
+
+window.onload = () => {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { showSigninError(resp.error); return; }
+      accessToken = resp.access_token;
+      document.getElementById("signinBox").style.display = "none";
+      document.getElementById("dashboardRoot").style.display = "block";
+      loadAll();
+    }
+  });
+  document.getElementById("signinBtn").onclick = () => tokenClient.requestAccessToken({ prompt: "consent" });
+  document.getElementById("signOutBtn").onclick = () => {
+    if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
+    accessToken = null;
+    document.getElementById("dashboardRoot").style.display = "none";
+    document.getElementById("signinBox").style.display = "block";
+  };
+  document.getElementById("refreshBtn").onclick = () => loadAll();
+  document.getElementById("tabActivas").onclick = () => {
+    CURRENT_TAB = "activas";
+    render(document.getElementById("clientFilter").value, document.getElementById("fromDate").value);
+  };
+  document.getElementById("tabFacturadas").onclick = () => {
+    CURRENT_TAB = "facturadas";
+    render(document.getElementById("clientFilter").value, document.getElementById("fromDate").value);
+  };
+};
+</script>
+</body>
+</html>
