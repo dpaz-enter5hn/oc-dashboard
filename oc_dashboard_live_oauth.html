@@ -1,4 +1,4 @@
-<!DOCTYPE html>   
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -123,6 +123,12 @@
     display: block; font-size: 11px; color: #1d4ed8; background: none; border: none;
     text-decoration: underline; cursor: pointer; padding: 0; margin-top: 5px;
   }
+  .download-btn {
+    background: #fff; border: 1px solid #1d4ed8; border-radius: 8px;
+    padding: 5px 10px; font-size: 11px; color: #1d4ed8; cursor: pointer; white-space: nowrap;
+  }
+  .download-btn:hover { background: #eff6ff; }
+  .download-btn:disabled { opacity: 0.6; cursor: default; }
 
   .footer { margin-top: 16px; font-size: 12px; color: #8a8a8a; }
   .empty, .error {
@@ -286,7 +292,7 @@ function classify(thread) {
     else if (domainOf(last.sender) === clientDomain) status = "seguimiento";
     else status = "proceso";
   }
-  return { status, first, last, count: msgs.length, clientName, clientDomain, unconfirmed: !CLIENT_MAP[clientDomain] };
+  return { status, first, last, clientFirst, count: msgs.length, clientName, clientDomain, unconfirmed: !CLIENT_MAP[clientDomain] };
 }
 
 const STATUS_META = {
@@ -386,6 +392,41 @@ async function setBillingStatus(ref, threadId, newStatus) {
   if (newStatus) BILLING_STATUS[ref] = newStatus; else delete BILLING_STATUS[ref];
 }
 
+/* ---------------- descarga del PDF adjunto (directo desde la API de Gmail) ---------------- */
+
+async function findPdfAttachments(messageId) {
+  const qs = new URLSearchParams({ format: "full" });
+  qs.append("fields", "id,payload(filename,mimeType,body,parts)");
+  const msg = await gmailFetch(`/messages/${messageId}?${qs.toString()}`);
+  const found = [];
+  (function walk(part) {
+    if (!part) return;
+    if (part.filename && part.body && part.body.attachmentId) {
+      const isPdf = part.mimeType === "application/pdf" || /\.pdf$/i.test(part.filename);
+      if (isPdf) found.push({ filename: part.filename, attachmentId: part.body.attachmentId });
+    }
+    (part.parts || []).forEach(walk);
+  })(msg.payload);
+  return found;
+}
+
+async function downloadAttachment(messageId, attachmentId, filename) {
+  const data = await gmailFetch(`/messages/${messageId}/attachments/${attachmentId}`);
+  const base64 = (data.data || "").replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "orden_de_compra.pdf";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
 /* ---------------- carga principal ---------------- */
 
 async function loadAll() {
@@ -407,6 +448,7 @@ async function loadAll() {
     BILLING_STATUS = {};
     ALL_ROWS = threadDetails.filter(Boolean).map(t => {
       const msgs = (t.messages || []).map(m => ({
+        id: m.id,
         sender: parseFromAddress(headerVal(m.payload && m.payload.headers, "From")),
         subject: headerVal(m.payload && m.payload.headers, "Subject") || "(sin asunto)",
         date: headerVal(m.payload && m.payload.headers, "Date"),
@@ -425,7 +467,8 @@ async function loadAll() {
         lastActivity: c.last && c.last.date ? new Date(c.last.date).toISOString() : null,
         status: c.status, count: c.count,
         clientName: c.clientName, unconfirmed: c.unconfirmed,
-        threadId: t.id
+        threadId: t.id,
+        messageId: c.clientFirst ? c.clientFirst.id : (c.first ? c.first.id : null)
       };
     }).filter(Boolean);
 
@@ -477,6 +520,29 @@ function attachRowHandlers(contentEl, filterClient, fromDateStr) {
       } catch (err) {
         alert("No se pudo actualizar la etiqueta en Gmail: " + (err.message || err));
         btn.disabled = false;
+      }
+    });
+  });
+  contentEl.querySelectorAll(".download-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const messageId = btn.getAttribute("data-message");
+      if (!messageId) { alert("No se encontró el correo original de esta OC."); return; }
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Buscando…";
+      try {
+        const atts = await findPdfAttachments(messageId);
+        if (atts.length === 0) {
+          alert("No se encontró un PDF adjunto en este correo.");
+        } else {
+          btn.textContent = "Descargando…";
+          await downloadAttachment(messageId, atts[0].attachmentId, atts[0].filename);
+        }
+      } catch (err) {
+        alert("No se pudo descargar el PDF: " + (err.message || err));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
       }
     });
   });
@@ -574,6 +640,7 @@ function render(filterClient, fromDateStr) {
         <td>${pdf ? `<span class="money">${fmtMoney(pdf.isv, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
         <td>${pdf ? `<span class="money">${fmtMoney(pdf.total, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
         <td class="muted">${r.count}</td>
+        <td>${r.messageId ? `<button class="download-btn" data-message="${escapeHtml(r.messageId)}">Descargar PDF</button>` : `<span class="pdf-empty">—</span>`}</td>
       </tr>
     `;
   }).join("");
@@ -604,6 +671,7 @@ function render(filterClient, fromDateStr) {
         <td><span class="money">${fmtMoney(totalsByCurrency[mon].isv, mon)}</span></td>
         <td><span class="money">${fmtMoney(totalsByCurrency[mon].total, mon)}</span></td>
         <td></td>
+        <td></td>
       </tr>
     `).join("");
   }
@@ -614,7 +682,7 @@ function render(filterClient, fromDateStr) {
         <th>Cliente</th><th>OC / Asunto</th><th>Remitente</th><th>Recibida</th><th>Última actividad</th>
         <th>Estatus</th><th>Facturación</th><th>Cotización</th><th>Descripción</th>
         ${EXTRA_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}
-        <th>Subtotal</th><th>ISV</th><th>Monto total</th><th>Msjs</th>
+        <th>Subtotal</th><th>ISV</th><th>Monto total</th><th>Msjs</th><th>Adjunto</th>
       </tr></thead>
       <tbody>${tableRows}</tbody>
       <tfoot>${footRow}</tfoot>
