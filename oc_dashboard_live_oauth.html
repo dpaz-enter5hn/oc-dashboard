@@ -153,6 +153,7 @@
     <div class="topbar">
       <div class="tabs">
         <button id="tabActivas" class="tab-btn active">En seguimiento<span class="tab-count" id="tabActivasCount"></span></button>
+        <button id="tabResumen" class="tab-btn">Resumen</button>
         <button id="tabFacturadas" class="tab-btn">Órdenes de compra facturadas<span class="tab-count" id="tabFacturadasCount"></span></button>
       </div>
       <button id="signOutBtn" class="signout-btn">Cerrar sesión</button>
@@ -160,13 +161,14 @@
 
     <div id="cards" class="cards"></div>
     <div class="toolbar">
-      <label for="clientFilter">Cliente:</label>
+      <label for="clientFilter" id="clientFilterLabel">Cliente:</label>
       <select id="clientFilter"><option value="">Todos</option></select>
-      <label for="fromDate">Desde:</label>
+      <label for="fromDate" id="fromDateLabel">Desde:</label>
       <input type="date" id="fromDate" value="2026-07-01">
+      <label for="summaryMonth" id="summaryMonthLabel" style="display:none;">Mes:</label>
+      <select id="summaryMonth" style="display:none;"><option value="">Todos los meses</option></select>
       <button id="refreshBtn" class="signout-btn" style="margin-left:auto;">Actualizar ahora</button>
     </div>
-    <div id="clientChips" class="client-chips"></div>
     <div id="content"><div class="loading">Cargando correo…</div></div>
     <div class="footer" id="footer"></div>
   </div>
@@ -246,6 +248,12 @@ function escapeHtml(str) {
   return String(str || "").replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
+}
+function fmtMonthLabel(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1, 1);
+  const label = d.toLocaleDateString("es-HN", { year: "numeric", month: "long" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -479,6 +487,11 @@ async function loadAll() {
     sel.onchange = () => render(sel.value, dateInput.value);
     dateInput.onchange = () => render(sel.value, dateInput.value);
 
+    const monthSel = document.getElementById("summaryMonth");
+    const months = Array.from(new Set(ALL_ROWS.filter(r => r.received).map(r => r.received.slice(0, 7)))).sort().reverse();
+    monthSel.innerHTML = '<option value="">Todos los meses</option>' + months.map(m => `<option value="${m}">${fmtMonthLabel(m)}</option>`).join("");
+    monthSel.onchange = () => render(sel.value, dateInput.value);
+
     render("", dateInput.value);
   } catch (err) {
     contentEl.innerHTML = `<div class="error">Error al consultar Gmail:\n${escapeHtml(err.message || String(err))}</div>`;
@@ -548,11 +561,98 @@ function attachRowHandlers(contentEl, filterClient, fromDateStr) {
   });
 }
 
+function updateToolbarForTab() {
+  const isResumen = CURRENT_TAB === "resumen";
+  document.getElementById("clientFilterLabel").style.display = isResumen ? "none" : "";
+  document.getElementById("clientFilter").style.display = isResumen ? "none" : "";
+  document.getElementById("fromDateLabel").style.display = isResumen ? "none" : "";
+  document.getElementById("fromDate").style.display = isResumen ? "none" : "";
+  document.getElementById("summaryMonthLabel").style.display = isResumen ? "" : "none";
+  document.getElementById("summaryMonth").style.display = isResumen ? "" : "none";
+}
+
+function renderResumen() {
+  const contentEl = document.getElementById("content");
+  const cardsEl = document.getElementById("cards");
+  const footerEl = document.getElementById("footer");
+  const monthVal = document.getElementById("summaryMonth").value;
+
+  let rows = ALL_ROWS;
+  if (monthVal) rows = rows.filter(r => r.received && r.received.slice(0, 7) === monthVal);
+
+  if (rows.length === 0) {
+    cardsEl.innerHTML = "";
+    contentEl.innerHTML = `<div class="empty">No hay órdenes de compra en el periodo seleccionado.</div>`;
+    footerEl.textContent = `Actualizado: ${new Date().toLocaleString("es-HN")}`;
+    return;
+  }
+
+  const byClient = {};
+  rows.forEach(r => {
+    if (!byClient[r.clientName]) {
+      byClient[r.clientName] = { total: 0, facturadas100: 0, facturadas50: 0, activas: 0, montoFacturado: 0, moneda: "L" };
+    }
+    const c = byClient[r.clientName];
+    c.total++;
+    const bs = BILLING_STATUS[r.ref] || "";
+    if (bs === "100") {
+      c.facturadas100++;
+      const pdf = PDF_DETAILS[r.ref];
+      if (pdf) { c.montoFacturado += pdf.total || 0; c.moneda = pdf.moneda || c.moneda; }
+    } else if (bs === "50") {
+      c.facturadas50++;
+    } else {
+      c.activas++;
+    }
+  });
+
+  const clientNames = Object.keys(byClient).sort((a, b) => byClient[b].total - byClient[a].total);
+  const clientesActivos = clientNames.filter(n => byClient[n].activas > 0 || byClient[n].facturadas50 > 0).length;
+  const totalOC = rows.length;
+  const totalFacturadas100 = rows.filter(r => BILLING_STATUS[r.ref] === "100").length;
+  const montoTotalFacturado = clientNames.reduce((s, n) => s + byClient[n].montoFacturado, 0);
+
+  cardsEl.innerHTML = `
+    <div class="card total"><div class="num">${clientNames.length}</div><div class="label">Clientes en el periodo</div></div>
+    <div class="card proceso"><div class="num">${clientesActivos}</div><div class="label">Clientes activos</div></div>
+    <div class="card total"><div class="num">${totalOC}</div><div class="label">OC totales</div></div>
+    <div class="card cerrada"><div class="num">${totalFacturadas100}</div><div class="label">OC facturadas 100%</div></div>
+    <div class="card cerrada"><div class="num">${fmtMoney(montoTotalFacturado, "L")}</div><div class="label">Monto total facturado</div></div>
+  `;
+
+  const tableRows = clientNames.map(name => {
+    const c = byClient[name];
+    return `
+      <tr>
+        <td><span class="client-name">${escapeHtml(name)}</span></td>
+        <td>${c.total}</td>
+        <td>${c.activas}</td>
+        <td>${c.facturadas50}</td>
+        <td>${c.facturadas100}</td>
+        <td><span class="money">${fmtMoney(c.montoFacturado, c.moneda)}</span></td>
+      </tr>
+    `;
+  }).join("");
+
+  contentEl.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Cliente</th><th>OC totales</th><th>En proceso / seguimiento</th><th>Facturadas 50%</th><th>Facturadas 100%</th><th>Monto facturado</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  `;
+
+  const monthNote = monthVal ? fmtMonthLabel(monthVal) : "todos los periodos";
+  footerEl.textContent = `Actualizado: ${new Date().toLocaleString("es-HN")} · Resumen de ${monthNote}. "Monto facturado" solo incluye OC con datos de PDF leídos.`;
+}
+
 function render(filterClient, fromDateStr) {
   const contentEl = document.getElementById("content");
   const cardsEl = document.getElementById("cards");
-  const chipsEl = document.getElementById("clientChips");
   const footerEl = document.getElementById("footer");
+
+  updateToolbarForTab();
 
   const baseRows = baseFilteredRows(filterClient, fromDateStr);
   const activasBase = baseRows.filter(r => BILLING_STATUS[r.ref] !== "100");
@@ -561,23 +661,21 @@ function render(filterClient, fromDateStr) {
   document.getElementById("tabActivasCount").textContent = " (" + activasBase.length + ")";
   document.getElementById("tabFacturadasCount").textContent = " (" + facturadasBase.length + ")";
   document.getElementById("tabActivas").classList.toggle("active", CURRENT_TAB === "activas");
+  document.getElementById("tabResumen").classList.toggle("active", CURRENT_TAB === "resumen");
   document.getElementById("tabFacturadas").classList.toggle("active", CURRENT_TAB === "facturadas");
+
+  if (CURRENT_TAB === "resumen") {
+    renderResumen();
+    return;
+  }
 
   let rows = CURRENT_TAB === "activas" ? activasBase : facturadasBase;
 
   if (ALL_ROWS.length === 0) {
     contentEl.innerHTML = `<div class="empty">No se encontraron órdenes de compra de clientes todavía.</div>`;
-    cardsEl.innerHTML = ""; chipsEl.innerHTML = "";
+    cardsEl.innerHTML = "";
     return;
   }
-
-  const chipsSource = CURRENT_TAB === "activas"
-    ? ALL_ROWS.filter(r => BILLING_STATUS[r.ref] !== "100")
-    : ALL_ROWS.filter(r => BILLING_STATUS[r.ref] === "100");
-  const byClient = {};
-  chipsSource.forEach(r => { byClient[r.clientName] = (byClient[r.clientName] || 0) + 1; });
-  chipsEl.innerHTML = Object.entries(byClient).sort((a, b) => b[1] - a[1])
-    .map(([name, n]) => `<span class="chip"><b>${escapeHtml(name)}</b> · ${n} OC</span>`).join("");
 
   if (rows.length === 0) {
     const msg = CURRENT_TAB === "facturadas"
@@ -727,6 +825,10 @@ window.onload = () => {
   document.getElementById("refreshBtn").onclick = () => loadAll();
   document.getElementById("tabActivas").onclick = () => {
     CURRENT_TAB = "activas";
+    render(document.getElementById("clientFilter").value, document.getElementById("fromDate").value);
+  };
+  document.getElementById("tabResumen").onclick = () => {
+    CURRENT_TAB = "resumen";
     render(document.getElementById("clientFilter").value, document.getElementById("fromDate").value);
   };
   document.getElementById("tabFacturadas").onclick = () => {
