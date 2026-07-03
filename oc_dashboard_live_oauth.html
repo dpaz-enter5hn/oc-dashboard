@@ -200,25 +200,20 @@ const EXCLUDE_DOMAINS = [
   "wesco.com", "enter5group.com", "enter5hn.com", "github.com"
 ];
 
-// Datos extraídos manualmente del PDF de cada OC (se agregan a medida que se leen)
-const PDF_DETAILS = {
-  "ODC-5-20267496097": {
-    cotizacion: "BP-632",
-    descripcion: "Suministro de equipo de tecnología: Multitool Flipper Zero Starter Pack con Micro SD card, tarjeta micro SDXC 64GB (Kingston), Devboard WiFi para Flipper Zero y funda protectora 5 en 1, para el área de Tecnología.",
-    moneda: "L",
-    subtotal: 10359.00,
-    isv: 1553.85,
-    total: 11912.85,
-    extra: {
-      documento: "ODC-5-202674900006097 BP",
-      fechaEmision: "01/07/2026",
-      contactoEntrega: "Nora Alvarado (Tecnología)",
-      tiempoEntrega: "Recepción hasta 65 días",
-      formaPago: "Crédito a cuenta",
-      contactoProveedor: "Carlos Martinez"
-    }
+// Datos extraídos manualmente del PDF de cada OC (se agregan a medida que se leen).
+// Viven en un archivo aparte (pdf_details.json) para poder actualizarlos sin tocar
+// ni volver a desplegar todo el código del dashboard.
+let PDF_DETAILS = {};
+
+async function loadPdfDetails() {
+  try {
+    const res = await fetch(`pdf_details.json?t=${Date.now()}`, { cache: "no-store" });
+    PDF_DETAILS = res.ok ? await res.json() : {};
+  } catch (e) {
+    console.warn("No se pudo cargar pdf_details.json:", e);
+    PDF_DETAILS = PDF_DETAILS || {};
   }
-};
+}
 
 const EXTRA_COLUMNS = [
   { key: "documento", label: "No. Documento" },
@@ -441,6 +436,7 @@ async function loadAll() {
   const contentEl = document.getElementById("content");
   contentEl.innerHTML = `<div class="loading">Consultando Gmail…</div>`;
   try {
+    await loadPdfDetails();
     LABEL_IDS = await ensureLabels();
 
     const [allIds, ids50, ids100] = await Promise.all([

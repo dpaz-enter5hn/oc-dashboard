@@ -1,0 +1,18 @@
+{
+  "ODC-5-20267496097": {
+    "cotizacion": "BP-632",
+    "descripcion": "Suministro de equipo de tecnología: Multitool Flipper Zero Starter Pack con Micro SD card, tarjeta micro SDXC 64GB (Kingston), Devboard WiFi para Flipper Zero y funda protectora 5 en 1, para el área de Tecnología.",
+    "moneda": "L",
+    "subtotal": 10359.00,
+    "isv": 1553.85,
+    "total": 11912.85,
+    "extra": {
+      "documento": "ODC-5-202674900006097 BP",
+      "fechaEmision": "01/07/2026",
+      "contactoEntrega": "Nora Alvarado (Tecnología)",
+      "tiempoEntrega": "Recepción hasta 65 días",
+      "formaPago": "Crédito a cuenta",
+      "contactoProveedor": "Carlos Martinez"
+    }
+  }
+}
