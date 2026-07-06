@@ -200,17 +200,77 @@ const EXCLUDE_DOMAINS = [
   "wesco.com", "enter5group.com", "enter5hn.com", "github.com"
 ];
 
-// Datos extraídos manualmente del PDF de cada OC (se agregan a medida que se leen).
-// Viven en un archivo aparte (pdf_details.json) para poder actualizarlos sin tocar
-// ni volver a desplegar todo el código del dashboard.
+// Datos extraídos automáticamente del PDF de cada OC por un Apps Script (Gemini API
+// lee el PDF adjunto en Gmail) que los escribe en esta Google Sheet cada hora.
+// El dashboard la lee en cada carga vía su export público en CSV (Sheet compartida
+// como "Cualquier persona con el enlace").
+const PDF_SHEET_ID = "1ev9wNjvUtSlfJtZXxEzJjoDYWlY2scWbdmAw7ihqxdc";
+const PDF_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${PDF_SHEET_ID}/export?format=csv&gid=0`;
+
 let PDF_DETAILS = {};
+
+// Parser de CSV simple que respeta campos entre comillas (con comas y saltos de
+// línea internos, tal como los exporta Google Sheets).
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ",") { row.push(field); field = ""; }
+      else if (c === "\r") { /* ignorar, \n cierra la fila */ }
+      else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+      else field += c;
+    }
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter(r => !(r.length === 1 && r[0] === ""));
+}
 
 async function loadPdfDetails() {
   try {
-    const res = await fetch(`pdf_details.json?t=${Date.now()}`, { cache: "no-store" });
-    PDF_DETAILS = res.ok ? await res.json() : {};
+    const res = await fetch(`${PDF_SHEET_CSV_URL}&t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const rows = parseCsv(text);
+    if (rows.length < 2) { PDF_DETAILS = {}; return; }
+    const headers = rows[0].map(h => h.trim());
+    const idx = name => headers.indexOf(name);
+    const details = {};
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const ref = (r[idx("ref")] || "").trim();
+      if (!ref) continue;
+      details[ref] = {
+        cotizacion: r[idx("cotizacion")] || "",
+        descripcion: r[idx("descripcion")] || "",
+        moneda: r[idx("moneda")] || "L",
+        subtotal: parseFloat(r[idx("subtotal")]) || 0,
+        isv: parseFloat(r[idx("isv")]) || 0,
+        total: parseFloat(r[idx("total")]) || 0,
+        extra: {
+          documento: r[idx("documento")] || "",
+          fechaEmision: r[idx("fechaEmision")] || "",
+          contactoEntrega: r[idx("contactoEntrega")] || "",
+          tiempoEntrega: r[idx("tiempoEntrega")] || "",
+          formaPago: r[idx("formaPago")] || "",
+          contactoProveedor: r[idx("contactoProveedor")] || "",
+        }
+      };
+    }
+    PDF_DETAILS = details;
   } catch (e) {
-    console.warn("No se pudo cargar pdf_details.json:", e);
+    console.warn("No se pudo cargar los datos de PDF desde la Google Sheet:", e);
     PDF_DETAILS = PDF_DETAILS || {};
   }
 }
