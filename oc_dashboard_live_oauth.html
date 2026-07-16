@@ -49,7 +49,7 @@
     cursor: pointer;
   }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tab-btn {
     background: #fff;
     border: 1px solid #e5e3de;
@@ -65,7 +65,6 @@
   .tab-btn .tab-count { margin-left: 6px; font-weight: 500; opacity: 0.75; }
 
   .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
-  .cards.cards-4 { grid-template-columns: repeat(4, 1fr); }
   .card { background: #fff; border: 1px solid #e5e3de; border-radius: 10px; padding: 14px 16px; }
   .card .num { font-size: 24px; font-weight: 600; }
   .card .label { font-size: 12px; color: #6b6b6b; margin-top: 2px; }
@@ -74,9 +73,6 @@
   .card.seguimiento .num { color: #b91c1c; }
   .card.proceso .num { color: #1d4ed8; }
   .card.cerrada .num { color: #15803d; }
-  .card.vencido .num { color: #b91c1c; }
-  .card.corriente .num { color: #166534; }
-  .card.sinCorreo .num { color: #b45309; }
 
   .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
   .toolbar label { font-size: 12px; color: #6b6b6b; }
@@ -105,22 +101,18 @@
   .badge.seguimiento { background: #fee2e2; color: #991b1b; }
   .badge.cerrada { background: #dcfce7; color: #166534; }
   .badge.facturada100 { background: #dcfce7; color: #166534; }
-  .badge.correoSi { background: #dcfce7; color: #166534; }
-  .badge.correoNo { background: #fee2e2; color: #991b1b; }
-  .badge.correoParcial { background: #fef3c7; color: #92400e; }
   .client-name { font-weight: 600; font-size: 12.5px; }
   .client-name.unconfirmed { color: #b45309; }
   .oc-ref { font-weight: 600; }
   .oc-subject { color: #6b6b6b; font-size: 12px; margin-top: 2px; }
   .muted { color: #6b6b6b; font-size: 12px; }
-  .pdf-cell { max-width: 220px; }
+  .pdf-cell { max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }
   .pdf-empty { color: #c7c5bf; }
   .pdf-tag {
     display: inline-block; background: #e0e7ff; color: #3730a3; font-size: 10px;
     font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-bottom: 4px;
   }
   .money { font-weight: 600; white-space: nowrap; }
-  .money.zero { color: #c7c5bf; font-weight: 400; }
   tfoot td { padding: 10px 12px; border-top: 2px solid #e5e3de; background: #fafaf8; }
   .totals-row .money { color: #1f3864; }
 
@@ -145,11 +137,6 @@
   }
   .error { color: #991b1b; border-color: #fecaca; background: #fef2f2; text-align: left; white-space: pre-wrap; }
   .loading { padding: 24px; text-align: center; color: #6b6b6b; font-size: 13px; }
-  .snapshot-banner {
-    background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
-    border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px;
-  }
-  .ar-note { color: #6b6b6b; font-size: 12px; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -168,7 +155,6 @@
         <button id="tabActivas" class="tab-btn active">En seguimiento<span class="tab-count" id="tabActivasCount"></span></button>
         <button id="tabResumen" class="tab-btn">Resumen</button>
         <button id="tabFacturadas" class="tab-btn">Órdenes de compra facturadas<span class="tab-count" id="tabFacturadasCount"></span></button>
-        <button id="tabVencidas" class="tab-btn">Facturas vencidas<span class="tab-count" id="tabVencidasCount"></span></button>
       </div>
       <button id="signOutBtn" class="signout-btn">Cerrar sesión</button>
     </div>
@@ -222,23 +208,6 @@ const PDF_SHEET_ID = "1ev9wNjvUtSlfJtZXxEzJjoDYWlY2scWbdmAw7ihqxdc";
 const PDF_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${PDF_SHEET_ID}/export?format=csv&gid=0`;
 
 let PDF_DETAILS = {};
-
-// --- Cuentas por cobrar vencidas (captura estática del reporte de Odoo "Cuentas por
-// cobrar vencidas"). Odoo no tiene un conector API conectado todavía, así que esta
-// pestaña NO se refresca sola: es una foto tomada el 06/07/2026. Para actualizarla,
-// pide que se vuelva a consultar Odoo y se regenere este archivo.
-const AR_SNAPSHOT_DATE = "06/07/2026";
-const AR_DATA = [
-  { name: "Administradora de servicios Inmobiliarios S.A. de C.V.", corriente: 155238.81, d1_30: 245128.25, d31_60: 49749.00, d61_90: 0, d91_120: 0, older: 0, total: 450116.06, email: "no", note: "Sin correo registrado en Odoo" },
-  { name: "BANPAÍS", corriente: 704895.76, d1_30: 22356.09, d31_60: 0, d61_90: 0, d91_120: 0, older: 4025.00, total: 731276.85, email: "parcial", note: "La empresa no tiene correo, pero hay 6 contactos con correo (ej. arielrb@banpais.hn, monicam@banpais.hn) — falta definir el contacto de cobros" },
-  { name: "Banco de Desarrollo Rural Honduras S.A.", corriente: 209916.84, d1_30: 0, d31_60: 0, d61_90: 0, d91_120: 0, older: 0, total: 209916.84, email: "no", note: "Sin saldo vencido — todo corriente" },
-  { name: "Ariel Ramirez", corriente: 0, d1_30: 0, d31_60: 0, d61_90: 0, d91_120: 0, older: 109000.00, total: 109000.00, email: "no", note: "Sin correo registrado en Odoo" },
-  { name: "Asociación Hondureña Mujer y Familia (AHMF)", corriente: 0, d1_30: 0, d31_60: 0, d61_90: 0, d91_120: 0, older: 4289.50, total: 4289.50, email: "no", note: "Sin correo registrado en Odoo" },
-  { name: "CASA DE ANDRES GRANADOS", corriente: 0, d1_30: 0, d31_60: 0, d61_90: 0, d91_120: 0, older: 82559.57, total: 82559.57, email: "no", note: "Sin correo registrado en Odoo" },
-  { name: "Jenny Portillo", corriente: 0, d1_30: 0, d31_60: 0, d61_90: 0, d91_120: 0, older: 23713.97, total: 23713.97, email: "no", note: "Sin correo registrado en Odoo" },
-  { name: "Knauf de Honduras", corriente: 0, d1_30: 0, d31_60: 32086.73, d61_90: 0, d91_120: 0, older: 0, total: 32086.73, email: "no", note: "Contacto Allan Gabrie registrado, pero sin correo" },
-  { name: "Solutes", corriente: 0, d1_30: 0, d31_60: 131675.00, d61_90: 0, d91_120: 0, older: 0, total: 131675.00, email: "no", note: "INV/2026/00075 · L106,375.00 (23/05/2026); INV/2026/00072 · L25,300.00 (18/05/2026)" },
-];
 
 // Parser de CSV simple que respeta campos entre comillas (con comas y saltos de
 // línea internos, tal como los exporta Google Sheets).
@@ -349,6 +318,24 @@ function fmtDate(iso) {
 function daysSince(iso) {
   if (!iso) return null;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+// Reduce la descripción larga del PDF a una referencia corta por tipo de proyecto,
+// para que quepan muchas más filas en pantalla. Si la descripción toca varios temas
+// (p.ej. cableado de red + cámaras), se combinan con " + ".
+const DESC_CATEGORIES = [
+  { label: "Seguridad electrónica", re: /(cctv|c[aá]mara|videovigilancia|control de acceso|alarma|videoportero|\bacm\b|biom[eé]tric)/i },
+  { label: "Redes", re: /(cableado|patch\s?panel|rj-?45|red(es)? de datos|punto(s)? de red|switch\b|fibra\s?[oó]ptica|categor[ií]a\s?6|rack\b|networking)/i },
+  { label: "Eléctrico", re: /(el[eé]ctric|iluminaci[oó]n|r[oó]tulo|toma\s?corriente|tablero\s?el[eé]ctrico|breaker|acometida)/i },
+  { label: "Mantenimiento", re: /(mantenimiento|reparaci[oó]n|reubicaci[oó]n)/i },
+  { label: "Suministro de equipos", re: /(suministro de equipo|multitool|licencia|kit\b)/i },
+];
+function summarizeDescripcion(desc) {
+  if (!desc) return "";
+  const found = [];
+  DESC_CATEGORIES.forEach(c => { if (c.re.test(desc) && !found.includes(c.label)) found.push(c.label); });
+  if (found.length === 0) return desc.length > 42 ? desc.slice(0, 42) + "…" : desc;
+  return found.join(" + ");
 }
 function domainOf(addr) {
   const m = (addr || "").match(/@([\w.-]+)/);
@@ -649,12 +636,11 @@ function attachRowHandlers(contentEl, filterClient, fromDateStr) {
 }
 
 function updateToolbarForTab() {
-  const hideFilters = CURRENT_TAB === "resumen" || CURRENT_TAB === "vencidas";
   const isResumen = CURRENT_TAB === "resumen";
-  document.getElementById("clientFilterLabel").style.display = hideFilters ? "none" : "";
-  document.getElementById("clientFilter").style.display = hideFilters ? "none" : "";
-  document.getElementById("fromDateLabel").style.display = hideFilters ? "none" : "";
-  document.getElementById("fromDate").style.display = hideFilters ? "none" : "";
+  document.getElementById("clientFilterLabel").style.display = isResumen ? "none" : "";
+  document.getElementById("clientFilter").style.display = isResumen ? "none" : "";
+  document.getElementById("fromDateLabel").style.display = isResumen ? "none" : "";
+  document.getElementById("fromDate").style.display = isResumen ? "none" : "";
   document.getElementById("summaryMonthLabel").style.display = isResumen ? "" : "none";
   document.getElementById("summaryMonth").style.display = isResumen ? "" : "none";
 }
@@ -700,7 +686,6 @@ function renderResumen() {
   const totalFacturadas100 = rows.filter(r => BILLING_STATUS[r.ref] === "100").length;
   const montoTotalFacturado = clientNames.reduce((s, n) => s + byClient[n].montoFacturado, 0);
 
-  cardsEl.className = "cards";
   cardsEl.innerHTML = `
     <div class="card total"><div class="num">${clientNames.length}</div><div class="label">Clientes en el periodo</div></div>
     <div class="card proceso"><div class="num">${clientesActivos}</div><div class="label">Clientes activos</div></div>
@@ -736,90 +721,6 @@ function renderResumen() {
   footerEl.textContent = `Actualizado: ${new Date().toLocaleString("es-HN")} · Resumen de ${monthNote}. "Monto facturado" solo incluye OC con datos de PDF leídos.`;
 }
 
-function renderVencidas() {
-  const cardsEl = document.getElementById("cards");
-  const contentEl = document.getElementById("content");
-  const footerEl = document.getElementById("footer");
-
-  const totalCartera = AR_DATA.reduce((s, c) => s + c.total, 0);
-  const totalCorriente = AR_DATA.reduce((s, c) => s + c.corriente, 0);
-  const totalVencido = totalCartera - totalCorriente;
-  const pctVencido = totalCartera > 0 ? (totalVencido / totalCartera * 100) : 0;
-  const clientesVencidos = AR_DATA.filter(c => (c.total - c.corriente) > 0);
-  const sinCorreo = clientesVencidos.filter(c => c.email === "no").length;
-
-  cardsEl.className = "cards cards-4";
-  cardsEl.innerHTML = `
-    <div class="card total"><div class="num">${fmtMoney(totalCartera)}</div><div class="label">Cartera total</div></div>
-    <div class="card corriente"><div class="num">${fmtMoney(totalCorriente)}</div><div class="label">Corriente (no vencido)</div></div>
-    <div class="card vencido"><div class="num">${fmtMoney(totalVencido)}</div><div class="label">Vencido total (${pctVencido.toFixed(1)}%)</div></div>
-    <div class="card sinCorreo"><div class="num">${sinCorreo} / ${clientesVencidos.length}</div><div class="label">Clientes morosos sin correo en Odoo</div></div>
-  `;
-
-  const rows = AR_DATA.slice().sort((a, b) => (b.total - b.corriente) - (a.total - a.corriente));
-
-  const emailBadge = (e) => {
-    if (e === "si") return `<span class="badge correoSi">Sí</span>`;
-    if (e === "parcial") return `<span class="badge correoParcial">Parcial</span>`;
-    return `<span class="badge correoNo">No</span>`;
-  };
-  const moneyCell = (n) => n > 0 ? `<span class="money">${fmtMoney(n)}</span>` : `<span class="money zero">${fmtMoney(0)}</span>`;
-
-  const tableRows = rows.map(c => {
-    const vencido = c.total - c.corriente;
-    return `
-      <tr>
-        <td><span class="client-name">${escapeHtml(c.name)}</span><div class="ar-note">${escapeHtml(c.note || "")}</div></td>
-        <td>${moneyCell(c.corriente)}</td>
-        <td>${moneyCell(c.d1_30)}</td>
-        <td>${moneyCell(c.d31_60)}</td>
-        <td>${moneyCell(c.d61_90)}</td>
-        <td>${moneyCell(c.d91_120)}</td>
-        <td>${moneyCell(c.older)}</td>
-        <td><span class="money" style="${vencido > 0 ? 'color:#b91c1c' : ''}">${fmtMoney(vencido)}</span></td>
-        <td>${emailBadge(c.email)}</td>
-      </tr>
-    `;
-  }).join("");
-
-  const totalRow = `
-    <tr class="totals-row">
-      <td class="muted">Total</td>
-      <td>${moneyCell(totalCorriente)}</td>
-      <td>${moneyCell(AR_DATA.reduce((s,c)=>s+c.d1_30,0))}</td>
-      <td>${moneyCell(AR_DATA.reduce((s,c)=>s+c.d31_60,0))}</td>
-      <td>${moneyCell(AR_DATA.reduce((s,c)=>s+c.d61_90,0))}</td>
-      <td>${moneyCell(AR_DATA.reduce((s,c)=>s+c.d91_120,0))}</td>
-      <td>${moneyCell(AR_DATA.reduce((s,c)=>s+c.older,0))}</td>
-      <td><span class="money" style="color:#b91c1c">${fmtMoney(totalVencido)}</span></td>
-      <td></td>
-    </tr>
-  `;
-
-  contentEl.innerHTML = `
-    <div class="snapshot-banner">Foto estática del reporte <b>Cuentas por cobrar vencidas</b> de Odoo, tomada al <b>${AR_SNAPSHOT_DATE}</b>. Odoo todavía no tiene un conector API conectado a este dashboard, así que esta pestaña no se refresca sola — pide que se vuelva a consultar Odoo para actualizarla.</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <th>Corriente</th>
-          <th>1-30 días</th>
-          <th>31-60 días</th>
-          <th>61-90 días</th>
-          <th>91-120 días</th>
-          <th>+120 días</th>
-          <th>Vencido</th>
-          <th>Correo disponible</th>
-        </tr>
-      </thead>
-      <tbody>${tableRows}</tbody>
-      <tfoot>${totalRow}</tfoot>
-    </table>
-  `;
-
-  footerEl.textContent = `Datos de Odoo (reporte "Cuentas por cobrar vencidas") al ${AR_SNAPSHOT_DATE}. Esta pestaña es una captura estática — no hay conector de Odoo disponible todavía para refrescarla automáticamente.`;
-}
-
 function render(filterClient, fromDateStr) {
   const contentEl = document.getElementById("content");
   const cardsEl = document.getElementById("cards");
@@ -833,18 +734,12 @@ function render(filterClient, fromDateStr) {
 
   document.getElementById("tabActivasCount").textContent = " (" + activasBase.length + ")";
   document.getElementById("tabFacturadasCount").textContent = " (" + facturadasBase.length + ")";
-  document.getElementById("tabVencidasCount").textContent = " (" + AR_DATA.filter(c => (c.total - c.corriente) > 0).length + ")";
   document.getElementById("tabActivas").classList.toggle("active", CURRENT_TAB === "activas");
   document.getElementById("tabResumen").classList.toggle("active", CURRENT_TAB === "resumen");
   document.getElementById("tabFacturadas").classList.toggle("active", CURRENT_TAB === "facturadas");
-  document.getElementById("tabVencidas").classList.toggle("active", CURRENT_TAB === "vencidas");
 
   if (CURRENT_TAB === "resumen") {
     renderResumen();
-    return;
-  }
-  if (CURRENT_TAB === "vencidas") {
-    renderVencidas();
     return;
   }
 
@@ -868,7 +763,6 @@ function render(filterClient, fromDateStr) {
   const counts = { total: rows.length, nueva: 0, seguimiento: 0, proceso: 0, cerrada: 0 };
   rows.forEach(r => counts[r.status]++);
   const totalLabel = CURRENT_TAB === "facturadas" ? "OC facturadas" : "OC totales";
-  cardsEl.className = "cards";
   cardsEl.innerHTML = `
     <div class="card total"><div class="num">${counts.total}</div><div class="label">${totalLabel}</div></div>
     <div class="card nueva"><div class="num">${counts.nueva}</div><div class="label">Nuevas sin acusar</div></div>
@@ -912,7 +806,7 @@ function render(filterClient, fromDateStr) {
         <td><span class="badge ${meta.badge}">${meta.label}</span></td>
         ${billingCell}
         <td>${pdf ? `<span class="pdf-tag">PDF leído</span><br>${escapeHtml(pdf.cotizacion)}` : `<span class="pdf-empty">—</span>`}</td>
-        <td class="pdf-cell">${pdf ? escapeHtml(pdf.descripcion) : `<span class="pdf-empty">—</span>`}</td>
+        <td class="pdf-cell" ${pdf ? `title="${escapeHtml(pdf.descripcion)}"` : ""}>${pdf ? escapeHtml(summarizeDescripcion(pdf.descripcion)) : `<span class="pdf-empty">—</span>`}</td>
         ${extraCells}
         <td>${pdf ? `<span class="money">${fmtMoney(pdf.subtotal, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
         <td>${pdf ? `<span class="money">${fmtMoney(pdf.isv, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
@@ -1013,10 +907,6 @@ window.onload = () => {
   };
   document.getElementById("tabFacturadas").onclick = () => {
     CURRENT_TAB = "facturadas";
-    render(document.getElementById("clientFilter").value, document.getElementById("fromDate").value);
-  };
-  document.getElementById("tabVencidas").onclick = () => {
-    CURRENT_TAB = "vencidas";
     render(document.getElementById("clientFilter").value, document.getElementById("fromDate").value);
   };
 };
