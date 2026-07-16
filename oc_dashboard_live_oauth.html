@@ -254,6 +254,7 @@ async function loadPdfDetails() {
       details[ref] = {
         cotizacion: r[idx("cotizacion")] || "",
         descripcion: r[idx("descripcion")] || "",
+        referencia: r[idx("referencia")] || "",
         moneda: r[idx("moneda")] || "L",
         subtotal: parseFloat(r[idx("subtotal")]) || 0,
         isv: parseFloat(r[idx("isv")]) || 0,
@@ -806,6 +807,7 @@ function render(filterClient, fromDateStr) {
         <td><span class="badge ${meta.badge}">${meta.label}</span></td>
         ${billingCell}
         <td>${pdf ? `<span class="pdf-tag">PDF leído</span><br>${escapeHtml(pdf.cotizacion)}` : `<span class="pdf-empty">—</span>`}</td>
+        <td class="pdf-cell">${pdf && pdf.referencia ? escapeHtml(pdf.referencia) : `<span class="pdf-empty">—</span>`}</td>
         <td class="pdf-cell" ${pdf ? `title="${escapeHtml(pdf.descripcion)}"` : ""}>${pdf ? escapeHtml(summarizeDescripcion(pdf.descripcion)) : `<span class="pdf-empty">—</span>`}</td>
         ${extraCells}
         <td>${pdf ? `<span class="money">${fmtMoney(pdf.subtotal, pdf.moneda)}</span>` : `<span class="pdf-empty">—</span>`}</td>
@@ -837,6 +839,7 @@ function render(filterClient, fromDateStr) {
       <tr class="totals-row">
         <td colspan="7" class="muted">${i === 0 ? totalsLabel : ""}</td>
         <td></td>
+        <td></td>
         <td class="muted">${mon}</td>
         <td colspan="${EXTRA_COLUMNS.length}"></td>
         <td><span class="money">${fmtMoney(totalsByCurrency[mon].subtotal, mon)}</span></td>
@@ -852,7 +855,7 @@ function render(filterClient, fromDateStr) {
     <table>
       <thead><tr>
         <th>Cliente</th><th>OC / Asunto</th><th>Remitente</th><th>Recibida</th><th>Última actividad</th>
-        <th>Estatus</th><th>Facturación</th><th>Cotización</th><th>Descripción</th>
+        <th>Estatus</th><th>Facturación</th><th>Cotización</th><th>Referencia</th><th>Descripción</th>
         ${EXTRA_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}
         <th>Subtotal</th><th>ISV</th><th>Monto total</th><th>Msjs</th><th>Adjunto</th>
       </tr></thead>
